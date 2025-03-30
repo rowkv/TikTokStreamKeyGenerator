@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import hashlib
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -17,8 +19,6 @@ from Libs.xgorgon import Gorgon
 from Libs.signature import ladon_encrypt, get_x_ss_stub
 
 
-
-
 class Stream:
     def __init__(self):
         self.s = requests.session()
@@ -35,7 +35,7 @@ class Stream:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.s.close()
-    
+
     def getLiveStudioLatestVersion(self):
         url = "https://tron-sg.bytelemon.com/api/sdk/check_update"
         params = {
@@ -51,6 +51,13 @@ class Stream:
             print(f"Failed to fetch latest version: {e}")
             return "0.99.0"
         
+    def get_public_ip_info(self):
+        try:
+            response = requests.get("http://ip-api.com/json/")
+            data = response.json()
+            return data.get("timezone", "Africa/Lagos"), data.get("countryCode", "TN")
+        except requests.RequestException as e:
+            return "Africa/Lagos", "US"
 
     def createStream(
         self,
@@ -62,12 +69,15 @@ class Stream:
         age_restricted=False,
         priority_region="",
         spoof_plat=0,
-        openudid = "",
-        device_id = "",
-        iid = "",
-        thumbnail_path = ""
+        openudid="",
+        device_id="",
+        iid="",
+        thumbnail_path=""
     ):
         base_url = self.getServerUrl()
+
+        timezone, country_code = self.get_public_ip_info()
+
         if spoof_plat == 1:
             self.s.headers = {
                 "user-agent": "com.zhiliaoapp.musically/2023508030 (Linux; U; Android 14; en_US_#u-mu-celsius; M2102J20SG; Build/AP2A.240905.003; Cronet/TTNetVersion:f58efab5 2024-06-13 QuicVersion:5d23606e 2024-05-23)",
@@ -101,19 +111,19 @@ class Stream:
                 "os_version": "14",
                 "ac": "wifi",
                 "is_pad": "0",
-                "current_region": "TN",
+                "current_region": country_code,
                 "app_type": "normal",
                 "sys_region": "US",
                 "last_install_time": "1717207722",
                 "mcc_mnc": "60501",
-                "timezone_name": "Africa/Tunis",
+                "timezone_name": timezone,
                 "carrier_region_v2": "605",
-                "residence": "TN",
+                "residence": country_code,
                 "app_language": "en",
-                "carrier_region": "TN",
+                "carrier_region": country_code,
                 "ac2": "wifi5g",
                 "uoo": "0",
-                "op_region": "TN",
+                "op_region": country_code,
                 "timezone_offset": "3600",
                 "build_number": "37.1.4",
                 "host_abi": "arm64-v8a",
@@ -209,19 +219,19 @@ class Stream:
                 "update_version_code": "2023701040",
                 "_rticket": "1730306440278",
                 "is_pad": "0",
-                "current_region": "TN",
+                "current_region": country_code,
                 "app_type": "normal",
                 "sys_region": "US",
                 "last_install_time": "1730305998",
                 "mcc_mnc": "60501",
-                "timezone_name": "Africa/Tunis",
+                "timezone_name": timezone,
                 "carrier_region_v2": "605",
-                "residence": "TN",
+                "residence": country_code,
                 "app_language": "en",
-                "carrier_region": "TN",
+                "carrier_region": country_code,
                 "ac2": "wifi5g",
                 "uoo": "0",
-                "op_region": "TN",
+                "op_region": country_code,
                 "timezone_offset": "3600",
                 "build_number": "37.1.4",
                 "host_abi": "arm64-v8a",
@@ -306,7 +316,7 @@ class Stream:
                 "browser_language": "en-US",
                 "screen_height": "1080",
                 "screen_width": "1920",
-                "timezone_name": "Africa/Lagos",
+                "timezone_name": timezone,
                 "device_id": "7378193331631310352",
                 "install_id": "7378196538524927745"
             }
@@ -342,7 +352,7 @@ class Stream:
         #     self.s.headers.update(ladon_encrypt(sig["x-khronos"], 1611921764, 1233))
         # else:
         #     self.s.headers.update(ladon_encrypt(sig["x-khronos"], 1611921764, 8311))
-            
+
         streamInfo = self.s.post(
             base_url + "webcast/room/create/",
             params=params,
@@ -393,14 +403,16 @@ class Stream:
         )
         response = self.s.get(url).json()
         for data in response["data"]["ttnet_dispatch_actions"]:
-            if "param" in data and "strategy_info" in data["param"] and "webcast-normal.tiktokv.com" in data["param"]["strategy_info"]:
+            if "param" in data and "strategy_info" in data["param"] and "webcast-normal.tiktokv.com" in data["param"][
+                    "strategy_info"]:
                 server_url = data['param']['strategy_info']['webcast-normal.tiktokv.com']
                 for data2 in response["data"]["ttnet_dispatch_actions"]:
-                    if "param" in data2 and "strategy_info" in data2["param"] and server_url in data2["param"]["strategy_info"]:
+                    if "param" in data2 and "strategy_info" in data2["param"] and server_url in data2["param"][
+                            "strategy_info"]:
                         server_url = data2['param']['strategy_info'][server_url]
                         return f"https://{server_url}/"
                 return f"https://{server_url}/"
-            
+
     def uploadThumbnail(
         self,
         file_path,
@@ -411,12 +423,12 @@ class Stream:
             "file": (f"crop_{round(time.time() * 1000)}.png", open(file_path, "rb"), "multipart/form-data")
         }
         thumbnailInfo = self.s.post(
-                    base_url + "webcast/room/upload/image/",
-                    params=params,
-                    files=files
+            base_url + "webcast/room/upload/image/",
+            params=params,
+            files=files
         ).json()
         return thumbnailInfo.get("data", {}).get("uri", "")
-            
+
     def renewCookies(self):
         response = self.s.get("https://www.tiktok.com/foryou")
         if response.url == "https://www.tiktok.com/login/phone-or-email":
@@ -678,6 +690,7 @@ def on_spoof_plat_change(*args):
     else:
         spoofing_frame.grid()
 
+
 def browse_image():
     file_path = filedialog.askopenfilename(
         title="Select a Image",
@@ -685,6 +698,7 @@ def browse_image():
     )
     if file_path:
         thumbnail_path_var.set(file_path)
+
 
 def generate_device():
     device: dict = Device().create_device()
@@ -696,7 +710,6 @@ def generate_device():
     device_id_entry.insert(0, device_id)
     iid_entry.delete(0, tk.END)
     iid_entry.insert(0, install_id)
-
 
 
 topics = {
